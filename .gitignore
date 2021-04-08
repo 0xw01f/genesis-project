@@ -1,0 +1,34 @@
+src/*.exe
+src/genesis
+src/genesisd
+src/test_genesis
+.*.swp
+*.*~*
+*.bak
+*.rej
+*.orig
+*.o
+*.patch
+.genesis
+
+# Compilation and Qt preprocessor part
+*.qm
+Makefile
+genesis-qt
+Genesis-Qt.app
+
+# Unit-tests
+Makefile.test
+genesis-qt_test
+
+# Resources cpp
+qrc_*.cpp
+
+# Qt creator
+*.pro.user
+
+# Mac specific
+.DS_Store
+build
+
+!src/leveldb*/Makefile
