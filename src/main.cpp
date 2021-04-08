@@ -35,7 +35,7 @@ CTxMemPool mempool;
 unsigned int nTransactionsUpdated = 0;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
-uint256 hashGenesisBlock("0x12a765e31ffd4059bada1e25190f6e98c99d9714d334efa41a195a7e7e04bfe2");
+uint256 hashGenesisBlock("0xb74de734d9106e8d10673769d6d6e0d11ec0483babe9ba360b0682551102310a");
 static CBigNum bnProofOfWorkLimit(~uint256(0) >> 20); // Genesis: starting difficulty is 1 / 2^12
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
@@ -1087,16 +1087,16 @@ uint256 static GetOrphanRoot(const CBlockHeader* pblock)
 
 int64 static GetBlockValue(int nHeight, int64 nFees)
 {
-    int64 nSubsidy = 50 * COIN;
+    int64 nSubsidy = 20 * COIN;
 
-    // Subsidy is cut in half every 840000 blocks, which will occur approximately every 4 years
-    nSubsidy >>= (nHeight / 840000); // Genesis: 840k blocks in ~4 years
+    // Subsidy is cut in half every 400000 blocks, which will occur approximately every 4 years
+    nSubsidy >>= (nHeight / 400000); // Genesis: 400000k blocks in ~4 years
 
     return nSubsidy + nFees;
 }
 
-static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Genesis: 3.5 days
-static const int64 nTargetSpacing = 2.5 * 60; // Genesis: 2.5 minutes
+static const int64 nTargetTimespan = 1 * 24 * 60 * 60; // Genesis: 1 day
+static const int64 nTargetSpacing = 1 * 60; // Genesis: 1 minutes
 static const int64 nInterval = nTargetTimespan / nTargetSpacing;
 
 //
@@ -2746,7 +2746,7 @@ bool LoadBlockIndex()
         pchMessageStart[1] = 0xc0;
         pchMessageStart[2] = 0xb8;
         pchMessageStart[3] = 0xdf;
-        hashGenesisBlock = uint256("0xf5ae71e26c74beacc88382716aced69cddf3dffff24f384e1808905e0188f68f");
+        hashGenesisBlock = uint256("0xfd953fabe82775cb01a142fd32724d38f57f168b19c73452715c8f9c90b6d40e");
     }
 
     //
@@ -2779,34 +2779,79 @@ bool InitBlockIndex() {
         //   vMerkleTree: 97ddfbbae6
 
         // Genesis block
-        const char* pszTimestamp = "NY Times 05/Oct/2011 Steve Jobs, Apple’s Visionary, Dies at 56";
+        const char* pszTimestamp = "08/Apr/2021 - Myself editing a code to create Genesis";
         CTransaction txNew;
         txNew.vin.resize(1);
         txNew.vout.resize(1);
         txNew.vin[0].scriptSig = CScript() << 486604799 << CBigNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
-        txNew.vout[0].nValue = 50 * COIN;
+        txNew.vout[0].nValue = 20 * COIN;
         txNew.vout[0].scriptPubKey = CScript() << ParseHex("04a8d9b2b602e894068845349b57ce8171c1ba3cc2747787bcc84d946c4a4c2c63ef82a161f891295644787b832fff9d5e1769a1df949c1d3bc27c87322f8305fb") << OP_CHECKSIG;
         CBlock block;
         block.vtx.push_back(txNew);
         block.hashPrevBlock = 0;
         block.hashMerkleRoot = block.BuildMerkleTree();
         block.nVersion = 1;
-        block.nTime    = 1317972665;
+        block.nTime    = 1617906803;
         block.nBits    = 0x1e0ffff0;
-        block.nNonce   = 2084524493;			
+        block.nNonce   = 2084563533;			
 
         if (fTestNet)
         {
-            block.nTime    = 1317798646;
-            block.nNonce   = 385270584;
+            block.nTime    = 1617906769;
+            block.nNonce   = 386134472;
         }
+
+	if (true && block.GetHash() != hashGenesisBlock)
+        {
+            printf("Searching for genesis block...\n");
+            // This will figure out a valid hash and Nonce if you're
+            // creating a different genesis block:
+            uint256 hashTarget = CBigNum().SetCompact(block.nBits).getuint256();
+            uint256 thash;
+            char scratchpad[SCRYPT_SCRATCHPAD_SIZE];
+ 
+            loop
+            {
+		#if defined(USE_SSE2)
+		// Detection would work, but in cases where we KNOW it always has SSE2,
+		// it is faster to use directly than to use a function pointer or conditional.
+		#if defined(_M_X64) || defined(__x86_64__) || defined(_M_AMD64) || (defined(MAC_OSX) && defined(__i386__))
+		// Always SSE2: x86_64 or Intel MacOS X
+		scrypt_1024_1_1_256_sp_sse2(BEGIN(block.nVersion), BEGIN(thash), scratchpad);
+		#else
+		// Detect SSE2: 32bit x86 Linux or Windows
+		scrypt_1024_1_1_256_sp(BEGIN(block.nVersion), BEGIN(thash), scratchpad);
+		#endif
+		#else
+		// Generic scrypt
+		scrypt_1024_1_1_256_sp_generic(BEGIN(block.nVersion), BEGIN(thash), scratchpad);
+		#endif
+		if (thash <= hashTarget)
+		    break;
+		if ((block.nNonce & 0xFFF) == 0)
+		{
+		    printf("nonce %08X: hash = %s (target = %s)\n", block.nNonce, thash.ToString().c_str(), hashTarget.ToString().c_str());
+		}
+		++block.nNonce;
+		if (block.nNonce == 0)
+		{
+		    printf("NONCE WRAPPED, incrementing time\n");
+		    ++block.nTime;
+		}
+		}
+			printf("block.nTime = %u \n", block.nTime);
+			printf("block.nNonce = %u \n", block.nNonce);
+			printf("block.GetHash = %s\n", block.GetHash().ToString().c_str());
+		}
+
+
 
         //// debug print
         uint256 hash = block.GetHash();
         printf("%s\n", hash.ToString().c_str());
         printf("%s\n", hashGenesisBlock.ToString().c_str());
         printf("%s\n", block.hashMerkleRoot.ToString().c_str());
-        assert(block.hashMerkleRoot == uint256("0x97ddfbbae6be97fd6cdf3e7ca13232a3afff2353e29badfab7f73011edd4ced9"));
+        assert(block.hashMerkleRoot == uint256("0xe9727f8459b1cabd0665db54faae79dab1abfe3769e3720ac44b6ed348455249"));
         block.print();
         assert(hash == hashGenesisBlock);
 
